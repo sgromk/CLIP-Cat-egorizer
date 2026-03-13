@@ -9,11 +9,8 @@ Endpoints:
 from __future__ import annotations
 
 import io
-from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from app.grader import Grader
@@ -28,9 +25,6 @@ app = FastAPI(
     description="A vision-language AI pipeline that grades artwork like an opinionated robot teacher.",
     version="0.1.0",
 )
-
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
-app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 # Module singletons (loaded once at startup)
 perception: PerceptionModule | None = None
@@ -51,13 +45,10 @@ async def startup_event() -> None:
 # ---------------------------------------------------------------------------
 
 
-@app.get("/", response_class=HTMLResponse)
-async def root() -> HTMLResponse:
-    """Serve the main web UI."""
-    html_path = FRONTEND_DIR / "index.html"
-    if not html_path.exists():
-        raise HTTPException(status_code=404, detail="Frontend not found.")
-    return HTMLResponse(content=html_path.read_text(), status_code=200)
+@app.get("/")
+async def root() -> dict:
+    """API root endpoint for backend-only operation."""
+    return {"status": "ok", "message": "Backend API is running."}
 
 
 @app.get("/health")

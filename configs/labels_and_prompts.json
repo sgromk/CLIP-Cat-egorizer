@@ -1,0 +1,23 @@
+{
+  "labels": [
+    "cat",
+    "painting",
+    "drawing",
+    "canvas",
+    "abstract art",
+    "geometric shapes",
+    "dollar bill",
+    "cash",
+    "person",
+    "colorful artwork",
+    "monochrome artwork",
+    "sculpture",
+    "photograph"
+  ],
+  "prompt_templates": [
+    "a painting of {label}",
+    "an artwork containing {label}",
+    "a fine art image showing {label}",
+    "a museum artwork with {label}"
+  ]
+}

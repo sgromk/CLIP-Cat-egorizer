@@ -44,10 +44,17 @@ ENV/
 
 # HuggingFace cache
 ~/.cache/huggingface/
+.cache/huggingface/
 
 # OpenCV / image artifacts
 *.avi
 *.mp4
+
+# Project data / experiment outputs
+data/raw/
+artifacts/
+data/checkpoints/
+*.parquet
 
 # Test outputs
 .pytest_cache/

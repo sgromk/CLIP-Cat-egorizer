@@ -1,50 +1,106 @@
 # Immediate Human TODOs
 
-Things that require manual effort and can't be scripted — do these first so the automated work is unblocked.
+Execution checklist for the full ablation plan (zero-shot multi-model + fine-tuning + linear map baseline).
 
 ---
 
-## 1. Data Collection & Labeling  ← biggest time sink, start now
+## 1) Environment + Runtime Setup
 
-- [ ] Browse [WikiArt](https://www.wikiart.org) and hand-pick ~80 images across the needed categories; download them into `data/raw/wikiart/`
-  - Want: abstract art, geometric work, paintings with cats, general paintings/drawings
-- [ ] Supplement with ~40 images from Google Images for categories WikiArt lacks: cats in artwork, scenes with visible currency, ambiguous mixed scenes → `data/raw/supplemental/`
-  - Check that images are CC-licensed or clearly usable for academic/non-commercial purposes
-- [ ] Install Label Studio locally (`pip install label-studio`, then `label-studio start`) and create a project for binary multi-label annotation
-- [ ] Annotate all 120 images with ground-truth labels (two passes if possible for kappa)
-- [ ] Export annotations as CSV → save to `data/labeled/annotations.csv`
-- [ ] Manually create `train.txt`, `val.txt`, `test.txt` splits (40 / 20 / 60) ensuring label balance in the training split
-
----
-
-## 2. Google Colab Setup
-
-- [ ] Upload the `data/` folder to Google Drive (or mount the repo via Drive)
-- [ ] Open `notebooks/03_model_C_train.ipynb` in Colab — run it first since it needs no GPU and validates the data pipeline end-to-end
-- [ ] Open `notebooks/04_model_B_finetune.ipynb` in Colab — enable GPU runtime (T4), run fine-tuning
-- [ ] Download `clip_finetuned.pt` and `linear_map_W.npy` from Drive into `data/checkpoints/` locally
+- [x] Create `.venv`
+- [x] Install core dependencies from `requirements.txt`
+- [x] Install dataset/model tooling (`huggingface_hub`, `datasets`)
+- [x] Install experiment extras:
+  - `pyarrow`
+  - `sentence-transformers`
+  - `scikit-learn`
+  - `umap-learn`
+  - `matplotlib`, `seaborn`
+- [ ] Confirm local app still runs: `uvicorn app.main:app --reload`
 
 ---
 
-## 3. API Keys / Local LLM
+## 2) Data Readiness
 
-- [ ] Decide: use OpenAI API or run Ollama locally for the LLM fallback
-  - OpenAI: grab an API key, add to `.env` as `OPENAI_API_KEY=...`
-  - Ollama: `ollama pull llama3` (runs locally, free, ~4GB)
-- [ ] Copy `.env.example` to `.env` and fill in accordingly
-
----
-
-## 4. Local Environment
-
-- [ ] `python -m venv .venv && source .venv/bin/activate`
-- [ ] `pip install -r requirements.txt`
-- [ ] First run of `uvicorn app.main:app --reload` to confirm CLIP loads and the server starts
-- [ ] Test camera access at `http://localhost:8000` — grant browser camera permission
+- [x] Download partial `huggan/wikiart` snapshot
+- [x] Delete `.incomplete` temp files
+- [x] Verify parquet integrity (all local shards readable)
+- [x] Run dataset verification + EDA script and write audit JSON
+- [x] Drop exact duplicate images (hash-based) and export unique index
+- [x] Generate detailed EDA artifacts (JSON + CSV + plots + highlights)
+- [x] Generate expanded findings bundle (outliers, tails, crosstabs, correlations, report markdown)
+- [x] Generate curated report pack markdown linking top figures/tables
+- [ ] Create reproducible WikiArt-only split files from unique index (`train/val/test`)
+- [ ] Store a WikiArt-only data card (`data/labeled/data_card.json`) with split + distribution stats
+- [ ] Curate final 6-8 strongest EDA figures/tables for presentation slides
 
 ---
 
-## 5. Demo Preparation
+## 3) Model Matrix (Track A: Zero-Shot)
 
-- [ ] Collect a few physical props for the live demo: something with a cat on it, some cash (or a printed photo of cash), a geometric drawing
-- [ ] Record a short screen capture of the live camera grading for the final presentation
+- [x] Add run config listing model IDs:
+  - `openai/clip-vit-base-patch32`
+  - `openai/clip-vit-large-patch14`
+  - `laion/CLIP-ViT-B-32-laion2B-s34B-b79K`
+  - `laion/CLIP-ViT-L-14-laion2B-s32B-b82K`
+  - `google/siglip-base-patch16-224`
+  - `google/siglip-so400m-patch14-384`
+- [x] Define 3–5 prompt templates per label
+- [x] Add reusable multi-model benchmark script
+- [ ] Run zero-shot inference for every model x prompt template
+- [ ] Save raw predictions to artifacts per run
+
+---
+
+## 4) Fine-Tuning (Track B)
+
+- [x] Add CLIP fine-tuning training script (image_path,text)
+- [ ] Select best 1–2 zero-shot models from Track A
+- [ ] Fine-tune on train split (validate on val split only)
+- [ ] Save checkpoints + full training config
+- [ ] Re-run full metric suite on held-out test split
+
+---
+
+## 5) Separate Encoders + Linear Map (Track C)
+
+- [ ] Pick image encoder backbone (ViT or ResNet)
+- [ ] Use text encoder: `sentence-transformers/all-MiniLM-L6-v2`
+- [x] Add linear-map training script with ridge CV
+- [ ] Fit ridge regression matrix `W` on train split embeddings
+- [ ] Tune regularization on val split
+- [ ] Evaluate on test split with same metrics as Tracks A/B
+
+---
+
+## 6) Shared Evaluation + Analysis
+
+- [ ] Compute per-label precision/recall/F1 + macro/micro F1
+- [ ] Compute AP/mAP
+- [ ] Compute retrieval Recall@1/5 (image->text and text->image)
+- [ ] Generate cosine distribution and separability plots
+- [ ] Run threshold sweep and choose model-specific thresholds on val split
+- [ ] Run robustness tests (blur/compression/brightness/crop)
+- [ ] Measure latency + throughput per model
+
+---
+
+## 7) Colab Workflow via VS Code
+
+- [ ] Create notebooks in this order:
+  1. `notebooks/01_data_audit.ipynb`
+  2. `notebooks/02_zero_shot_benchmark.ipynb`
+  3. `notebooks/03_prompt_threshold_sweep.ipynb`
+  4. `notebooks/04_finetune_clip.ipynb`
+  5. `notebooks/05_linear_map_baseline.ipynb`
+  6. `notebooks/06_robustness_latency.ipynb`
+  7. `notebooks/07_report_tables_plots.ipynb`
+- [ ] Ensure each notebook writes artifacts to `artifacts/runs/<run_id>/`
+- [ ] Sync artifacts back to local repo for final report and demo
+
+---
+
+## 8) Final Deliverables
+
+- [ ] One master comparison table (A vs B vs C)
+- [ ] Failure case gallery with short interpretations
+- [ ] Final demo run using selected best model in live app
