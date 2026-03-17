@@ -16,6 +16,31 @@ Primary objective:
 2. Compare zero-shot vs fine-tuned CLIP-style models.
 3. Compare jointly trained vision-language embeddings vs separate encoders with a learned linear alignment map.
 
+## As Implemented (March 2026)
+
+The three-track experiment pipeline is implemented with script-first execution:
+
+- Track A (zero-shot provider comparison):
+	- `scripts/benchmark_wikiart_zero_shot.py`
+	- `scripts/run_track_a_comparison.py`
+	- `scripts/merge_track_a_runs.py`
+	- Supports local split mode and HF streaming mode (`huggan/wikiart`) with retry/resume + shared cache.
+- Track B (fine-tuning):
+	- `scripts/finetune_clip.py`
+	- Colab notebook flow in `notebooks/finetune_clip_colab.ipynb` with runtime token handling and memory-safe buffering.
+- Track C (separate encoders + linear map):
+	- `scripts/train_linear_map.py` (ridge CV training of `W`)
+	- `scripts/benchmark_linear_map.py` (Track A-compatible evaluation artifacts)
+	- `scripts/run_track_c_comparison.py` (style+genre orchestration + summary tables)
+
+Unified artifact pattern used by Track A and Track C runs:
+
+- `artifacts/runs/track*/style/metrics_*.json`
+- `artifacts/runs/track*/style/predictions_*.parquet`
+- `artifacts/runs/track*/genre/metrics_*.json`
+- `artifacts/runs/track*/genre/predictions_*.parquet`
+- `artifacts/runs/track*/summary/track_a_metrics_long.csv` (merge-compatible)
+
 ---
 
 ## System Summary
@@ -271,6 +296,49 @@ python scripts/benchmark_zero_shot.py \
 	--output-dir artifacts/runs
 ```
 
+Track A full provider comparison (WikiArt style + genre, slide-ready summaries):
+
+```bash
+python scripts/run_track_a_comparison.py \
+	--split-csv data/labeled/test.csv \
+	--models-config configs/zero_shot_models.json \
+	--output-root artifacts/runs \
+	--targets style genre \
+	--templates-per-class 4 \
+	--max-images 0
+```
+
+Outputs are written under `artifacts/runs/trackA_<timestamp>/` with:
+
+- per-target raw artifacts in `style/` and `genre/`
+- slide-ready tables in `summary/track_a_metrics_long.csv` and `summary/track_a_leaderboard.csv`
+- summary pack in `summary/track_a_summary.json` and `summary/track_a_slides.md`
+
+Merge multiple Track A runs into one final slide table:
+
+```bash
+python scripts/merge_track_a_runs.py \
+	--runs-root artifacts/runs \
+	--output-dir artifacts/runs/trackA_merged
+```
+
+Merged outputs:
+
+- `all_runs_metrics_long.csv` (all model/target/run rows)
+- `all_runs_leaderboard.csv` (ranked across runs)
+- `final_slides_table.csv` (one best row per target+model)
+- `best_per_target.csv` (headline winners)
+- `merge_summary.json`
+
+To merge Track A and Track C together, include both run globs:
+
+```bash
+python scripts/merge_track_a_runs.py \
+	--runs-root artifacts/runs \
+	--run-globs trackA_* trackC_* \
+	--output-dir artifacts/runs/trackAC_merged
+```
+
 ### 3) Fine-tune CLIP on image-text pairs
 
 Training CSV requires columns `image_path,text`:
@@ -298,6 +366,25 @@ python scripts/finetune_clip.py \
 	--output-dir artifacts/checkpoints
 ```
 
+Evaluate a Track B checkpoint on the held-out test split with merge-compatible outputs:
+
+```bash
+python scripts/run_track_b_comparison.py \
+	--split-csv data/labeled/test.csv \
+	--checkpoint-dir artifacts/checkpoints/trackB_laion_vitl14 \
+	--output-root artifacts/runs
+```
+
+Colab notebook runner for streaming Track B evaluation:
+
+- `notebooks/track_b_colab_runner.ipynb`
+
+This writes:
+
+- `artifacts/runs/trackB_<timestamp>/style/metrics_*.json`
+- `artifacts/runs/trackB_<timestamp>/style/predictions_*.parquet`
+- `artifacts/runs/trackB_<timestamp>/summary/track_a_metrics_long.csv`
+
 ### 4) Train separate-encoder linear map baseline
 
 Pairs CSV requires columns `image_path,text`:
@@ -316,6 +403,46 @@ python scripts/train_linear_map.py \
 	--max-rows 20000 \
 	--style-template "a painting in style_{style_id}" \
 	--output-dir artifacts/linear_map
+```
+
+Evaluate Track C on the test split (style + genre) and produce slide-compatible tables:
+
+```bash
+python scripts/run_track_c_comparison.py \
+	--split-csv data/labeled/test.csv \
+	--linear-map-path artifacts/linear_map/linear_map_W.npy \
+	--output-root artifacts/runs \
+	--templates-per-class 1
+```
+
+Smoke test (quick sanity check):
+
+```bash
+python scripts/run_track_c_comparison.py \
+	--split-csv data/labeled/test.csv \
+	--linear-map-path artifacts/linear_map/linear_map_W.npy \
+	--output-root artifacts/runs \
+	--targets style genre \
+	--templates-per-class 1 \
+	--max-images 64
+```
+
+Merge Track A + Track C runs into one final slides table:
+
+```bash
+python scripts/merge_track_a_runs.py \
+	--runs-root artifacts/runs \
+	--run-globs trackA_* trackC_* \
+	--output-dir artifacts/runs/trackAC_merged
+```
+
+Merge Track A + B + C runs:
+
+```bash
+python scripts/merge_track_a_runs.py \
+	--runs-root artifacts/runs \
+	--run-globs trackA_* trackB_* trackC_* \
+	--output-dir artifacts/runs/trackABC_merged
 ```
 
 ---

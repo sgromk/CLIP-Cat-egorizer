@@ -65,6 +65,7 @@ coverage.xml
 # Logs
 *.log
 logs/
+TODOS.md
 
 # Temporary / scratch
 scratch/

@@ -30,8 +30,17 @@ class HFVisionTextAdapter:
     def __init__(self, model_id: str, device: str | None = None) -> None:
         self.model_id = model_id
         self.device = device or pick_device()
-        self.processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
-        self.model = AutoModel.from_pretrained(model_id, trust_remote_code=True).to(self.device)
+        hf_token = os.getenv("HF_TOKEN") or None
+        self.processor = AutoProcessor.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            token=hf_token,
+        )
+        self.model = AutoModel.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            token=hf_token,
+        ).to(self.device)
         self.model.eval()
 
     def score_image_texts(self, image: Image.Image, texts: list[str]) -> ModelScores:

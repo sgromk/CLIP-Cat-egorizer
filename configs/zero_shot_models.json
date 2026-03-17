@@ -4,6 +4,7 @@
     "openai/clip-vit-large-patch14",
     "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
     "laion/CLIP-ViT-L-14-laion2B-s32B-b82K",
-    "google/siglip-base-patch16-224"
+    "google/siglip-base-patch16-224",
+    "google/siglip-so400m-patch14-384"
   ]
 }
